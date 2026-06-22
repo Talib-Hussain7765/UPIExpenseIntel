@@ -1,4 +1,4 @@
-# UPI Expense Dashboard - Project Design Document
+ # UPI Expense Dashboard - Project Design Document
 
 ## 1. Project Summary
 
@@ -80,9 +80,11 @@ Secondary user:
 
 ### File Parsing
 
-- Apache Commons CSV or OpenCSV for CSV statements.
-- Apache POI for Excel statements.
-- Apache PDFBox for basic PDF extraction.
+- Apache PDFBox for MVP PDF text extraction.
+- Bank-specific parser implementations behind a common `StatementParser` interface.
+- Optional PDF password support for protected statements.
+- Apache Commons CSV or OpenCSV for future CSV statements.
+- Apache POI for future Excel statements.
 - Optional future Python parser service for difficult PDF statements using pdfplumber, pandas, Camelot, or tabula-py.
 
 ### Storage
@@ -232,11 +234,14 @@ audit
 
 ### Statement Upload
 
-- User can upload a CSV statement in MVP.
+- User can upload a PDF statement in MVP.
+- MVP parser support starts with ICICI savings account PDF statements.
 - User can select the bank account and statement month.
+- User can provide an optional PDF password.
 - Backend validates file type and size.
 - Backend stores upload metadata.
-- Backend parses the file asynchronously or synchronously in MVP.
+- Backend extracts PDF text and parses the file synchronously in MVP.
+- Backend records total rows, parsed rows, failed rows, upload status, and parser errors.
 - User can review imported transactions.
 
 ### Transaction Management
@@ -274,7 +279,8 @@ audit
 
 ## 10. Future Functional Requirements
 
-- PDF statement import.
+- Additional bank-specific PDF statement parsers.
+- CSV statement import.
 - Excel statement import.
 - Gmail transaction email import.
 - Account Aggregator-ready integration layer.
@@ -549,10 +555,12 @@ UPI FROM JOHN
 
 Parser responsibilities:
 
+- Select the correct bank-specific parser based on bank name, file type, and statement content.
 - Detect whether the transaction is UPI.
 - Detect debit or credit.
 - Extract reference number where available.
 - Extract possible merchant or sender name.
+- Capture balance after transaction where available.
 - Keep original raw description unchanged for auditability.
 
 ## 14. Salary and Credit Detection
@@ -870,8 +878,8 @@ The app should show human-readable errors and keep technical details in backend 
 Maintain anonymized sample statements:
 
 ```text
+sample-icici-savings.pdf
 sample-hdfc-upi.csv
-sample-icici-upi.csv
 sample-sbi-upi.csv
 ```
 
@@ -886,8 +894,8 @@ Do not commit real personal financial data.
 - PostgreSQL schema.
 - Authentication.
 - Bank account management.
-- CSV statement upload.
-- Transaction parsing.
+- PDF statement upload.
+- ICICI savings PDF transaction parsing.
 - Transaction listing.
 - Basic categorization.
 - Dashboard summary.
@@ -896,8 +904,9 @@ Do not commit real personal financial data.
 
 ### Phase 2: Strong Portfolio Version
 
+- CSV import.
 - Excel import.
-- PDF import.
+- More bank-specific PDF parsers.
 - User-defined rules.
 - Duplicate detection.
 - Scheduled monthly emails.
@@ -1005,10 +1014,9 @@ The MVP is successful when:
 
 - A user can register and log in.
 - A user can add a bank account.
-- A user can upload a CSV bank statement.
+- A user can upload an ICICI PDF bank statement.
 - The system imports and normalizes transactions.
 - UPI debits and credits are detected.
 - Salary and common expenses are categorized.
 - The dashboard shows monthly income, expense, and savings.
 - The user can generate and email a monthly report.
-

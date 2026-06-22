@@ -21,7 +21,13 @@ spring:
       max-request-size: 10MB
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:9090}
+
+logging:
+  level:
+    com.upiexpense.intel.transaction.CategorizationService: DEBUG
+    com.upiexpense.intel.transaction.TransactionService: DEBUG
+    com.upiexpense.intel.rule.MerchantRuleService: DEBUG
 
 app:
   security:

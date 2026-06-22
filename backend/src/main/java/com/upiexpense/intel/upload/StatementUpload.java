@@ -38,6 +38,9 @@ public class StatementUpload extends BaseEntity {
     @Column(name = "file_type", nullable = false, length = 30)
     private String fileType;
 
+    @Column(name = "file_sha256", length = 64)
+    private String fileSha256;
+
     @Column(name = "statement_month", nullable = false)
     private LocalDate statementMonth;
 
