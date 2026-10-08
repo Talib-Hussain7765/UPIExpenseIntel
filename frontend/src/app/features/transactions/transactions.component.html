@@ -1,0 +1,179 @@
+<section class="transactions-page">
+  <header class="page-header">
+    <div>
+      <h1>Transactions</h1>
+      <p>Review parsed rows, fix categories, and exclude transfers or ignored activity.</p>
+    </div>
+    <button mat-stroked-button type="button" (click)="loadTransactions()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <div class="message error-state">
+      <mat-icon>error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message success-state">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  <section class="filters-panel">
+    <form [formGroup]="filters" (ngSubmit)="loadTransactions()">
+      <mat-form-field appearance="outline">
+        <mat-label>Month</mat-label>
+        <input matInput type="month" formControlName="month" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Type</mat-label>
+        <mat-select formControlName="transactionType">
+          <mat-option value="">All</mat-option>
+          @for (type of transactionTypes; track type) {
+            <mat-option [value]="type">{{ type }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Payment mode</mat-label>
+        <mat-select formControlName="paymentMode">
+          <mat-option value="">All</mat-option>
+          @for (mode of paymentModes; track mode) {
+            <mat-option [value]="mode">{{ mode }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Category</mat-label>
+        <mat-select formControlName="categoryId">
+          <mat-option value="">All</mat-option>
+          @for (category of categories(); track category.id) {
+            <mat-option [value]="category.id">{{ category.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Merchant/search</mat-label>
+        <input matInput formControlName="merchant" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Ignored</mat-label>
+        <mat-select formControlName="ignored">
+          <mat-option value="">All</mat-option>
+          <mat-option value="false">Visible</mat-option>
+          <mat-option value="true">Ignored</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Transfer</mat-label>
+        <mat-select formControlName="transfer">
+          <mat-option value="">All</mat-option>
+          <mat-option value="false">Non-transfer</mat-option>
+          <mat-option value="true">Transfer</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="filter-actions">
+        <button mat-flat-button color="primary" type="submit">Apply</button>
+        <button mat-button type="button" (click)="resetFilters()">Reset</button>
+      </div>
+    </form>
+
+    <div class="categorize-actions">
+      <mat-checkbox [formControl]="filters.controls.overwrite">Overwrite existing</mat-checkbox>
+      <button mat-stroked-button type="button" (click)="rerunCategorization()" [disabled]="categorizing()">
+        @if (categorizing()) {
+          <mat-spinner diameter="18" />
+        } @else {
+          Re-run categorization
+        }
+      </button>
+    </div>
+  </section>
+
+  <section class="transactions-panel">
+    <div class="panel-header">
+      <h2>Rows</h2>
+      <span>{{ transactions().length }} transactions</span>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="32" />
+      </div>
+    } @else {
+      <div class="transaction-list">
+        @for (transaction of transactions(); track transaction.id) {
+          <article class="transaction-row" [class.ignored]="transaction.ignored" [class.transfer]="transaction.transfer">
+            <div class="date-cell">
+              <strong>{{ transaction.transactionDate | date: 'dd' }}</strong>
+              <span>{{ transaction.transactionDate | date: 'MMM' }}</span>
+            </div>
+
+            <div class="description-cell">
+              <strong>{{ transaction.merchantName || transaction.description }}</strong>
+              <span>{{ transaction.description }}</span>
+            </div>
+
+            <span class="mode-chip">{{ transaction.paymentMode }}</span>
+
+            <mat-form-field appearance="outline" class="category-field">
+              <mat-label>Category</mat-label>
+              <mat-select
+                [value]="transaction.category?.id || ''"
+                [disabled]="savingId() === transaction.id"
+                (selectionChange)="updateCategory(transaction, $event.value)">
+                <mat-option value="">Uncategorized</mat-option>
+                @for (category of categories(); track category.id) {
+                  <mat-option [value]="category.id">{{ category.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <strong class="amount" [class.credit]="transaction.transactionType === 'CREDIT'">
+              {{ transaction.transactionType === 'CREDIT' ? '+' : '-' }}{{ money(transaction.amount) }}
+            </strong>
+
+            <div class="row-actions">
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Mark ignored"
+                [class.active]="transaction.ignored"
+                [disabled]="savingId() === transaction.id"
+                (click)="toggleIgnored(transaction)">
+                <mat-icon>visibility_off</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Mark transfer"
+                [class.active]="transaction.transfer"
+                [disabled]="savingId() === transaction.id"
+                (click)="toggleTransfer(transaction)">
+                <mat-icon>swap_horiz</mat-icon>
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <div class="empty-state">
+            <mat-icon>receipt_long</mat-icon>
+            <strong>No transactions found</strong>
+            <span>Upload a statement or adjust filters.</span>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</section>

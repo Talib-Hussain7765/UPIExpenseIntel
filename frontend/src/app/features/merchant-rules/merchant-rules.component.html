@@ -1,0 +1,136 @@
+<section class="merchant-rules-page">
+  <header class="page-header">
+    <div>
+      <h1>Merchant Rules</h1>
+      <p>Teach categorization with reusable keyword rules before re-running categorization.</p>
+    </div>
+    <button mat-stroked-button type="button" (click)="loadRules()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <div class="message error-state">
+      <mat-icon>error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message success-state">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  <section class="content-grid">
+    <mat-card class="form-card">
+      <mat-card-header>
+        <mat-card-title>{{ formTitle() }}</mat-card-title>
+        <mat-card-subtitle>Rules run before built-in fallback categorization.</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <mat-form-field appearance="outline">
+            <mat-label>Keyword</mat-label>
+            <input matInput formControlName="keyword" placeholder="SWIGGY" />
+            @if (form.controls.keyword.touched && form.controls.keyword.invalid) {
+              <mat-error>Keyword is required</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Match type</mat-label>
+            <mat-select formControlName="matchType">
+              @for (type of matchTypes; track type) {
+                <mat-option [value]="type">{{ type }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="categoryId">
+              @for (category of categories(); track category.id) {
+                <mat-option [value]="category.id">{{ category.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Merchant name</mat-label>
+            <input matInput formControlName="merchantName" placeholder="Optional display name" />
+          </mat-form-field>
+
+          <div class="inline-fields">
+            <mat-form-field appearance="outline">
+              <mat-label>Priority</mat-label>
+              <input matInput type="number" formControlName="priority" />
+            </mat-form-field>
+
+            <mat-checkbox formControlName="active">Active</mat-checkbox>
+          </div>
+
+          <div class="form-actions">
+            <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+              @if (saving()) {
+                <mat-spinner diameter="18" />
+              } @else if (editingRule()) {
+                Save changes
+              } @else {
+                Add rule
+              }
+            </button>
+            <button mat-button type="button" (click)="resetForm()">Clear</button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <section class="rules-panel">
+      <div class="panel-header">
+        <h2>Rules</h2>
+        <span>{{ rules().length }} total</span>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else {
+        <div class="rule-list">
+          @for (rule of rules(); track rule.id) {
+            <article class="rule-row" [class.inactive]="!rule.active">
+              <div class="rule-main">
+                <strong>{{ rule.keyword }}</strong>
+                <span>{{ rule.matchType }} · priority {{ rule.priority }}</span>
+              </div>
+              <span class="category-chip">
+                <span class="swatch" [style.background]="rule.category.color || '#9ca3af'"></span>
+                {{ rule.category.name }}
+              </span>
+              <span class="merchant">{{ rule.merchantName || 'No merchant rename' }}</span>
+              <span class="status" [class.active]="rule.active">{{ rule.active ? 'ACTIVE' : 'INACTIVE' }}</span>
+              <div class="row-actions">
+                <button mat-icon-button type="button" matTooltip="Edit rule" (click)="edit(rule)">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button type="button" matTooltip="Deactivate rule" [disabled]="!rule.active" (click)="deactivate(rule)">
+                  <mat-icon>block</mat-icon>
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-state">
+              <mat-icon>rule</mat-icon>
+              <strong>No merchant rules yet</strong>
+              <span>Create rules, then re-run categorization from Transactions.</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  </section>
+</section>

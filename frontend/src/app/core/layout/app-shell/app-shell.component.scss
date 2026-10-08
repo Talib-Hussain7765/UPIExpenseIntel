@@ -1,0 +1,79 @@
+.shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #111827;
+  border-right: 0;
+  color: #f9fafb;
+  width: 248px;
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  font-size: 18px;
+  font-weight: 700;
+  gap: 10px;
+  padding: 20px;
+}
+
+.brand-mark {
+  align-items: center;
+  background: #2563eb;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 13px;
+  height: 32px;
+  justify-content: center;
+  width: 42px;
+}
+
+nav {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+nav a {
+  align-items: center;
+  border-radius: 6px;
+  color: #d1d5db;
+  display: flex;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+nav a.active,
+nav a:hover {
+  background: #1f2937;
+  color: #ffffff;
+}
+
+mat-toolbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.user-name {
+  color: #4b5563;
+  font-size: 14px;
+  margin-right: 14px;
+}
+
+.content {
+  background: #f5f7fb;
+  min-height: calc(100vh - 64px);
+  padding: 24px;
+}

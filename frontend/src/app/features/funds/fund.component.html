@@ -1,0 +1,399 @@
+<section class="fund-page">
+
+  <header class="page-header">
+    <div>
+      <h1>Funds</h1>
+      <p>
+        Track your savings and allocate your available balance.
+      </p>
+    </div>
+
+    <button
+      mat-stroked-button
+      type="button"
+      [disabled]="loading()"
+      (click)="loadSummary()">
+
+      <mat-icon>refresh</mat-icon>
+      Refresh
+
+    </button>
+  </header>
+
+
+  @if (errorMessage()) {
+    <div class="message error-state">
+      <mat-icon>error</mat-icon>
+      {{ errorMessage() }}
+    </div>
+  }
+
+
+  @if (successMessage()) {
+    <div class="message success-state">
+      <mat-icon>check_circle</mat-icon>
+      {{ successMessage() }}
+    </div>
+  }
+
+
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else {
+    @if (summary(); as data) {
+
+  <!-- BALANCE SUMMARY -->
+
+  <section class="metric-grid">
+
+    <mat-card class="metric-card">
+      <span>Total Balance</span>
+
+      <strong>
+        {{ money(data.totalBalance) }}
+      </strong>
+
+      @if (data.reconciledDate) {
+      <small>
+        Reconciled {{ data.reconciledDate | date:'mediumDate' }}
+      </small>
+      }
+    </mat-card>
+
+
+    <mat-card class="metric-card">
+      <span>Allocated to Funds</span>
+
+      <strong>
+        {{ money(data.allocatedBalance) }}
+      </strong>
+    </mat-card>
+
+
+    <mat-card class="metric-card available-card">
+      <span>Available Balance</span>
+
+      <strong>
+        {{ money(data.availableBalance) }}
+      </strong>
+    </mat-card>
+
+  </section>
+
+
+  <!-- RECONCILE -->
+
+  <mat-card class="reconcile-card">
+
+    <mat-card-header>
+      <mat-card-title>
+        Reconcile Balance
+      </mat-card-title>
+
+      <mat-card-subtitle>
+        Update your current total account balance.
+      </mat-card-subtitle>
+    </mat-card-header>
+
+
+    <mat-card-content>
+
+      <div class="reconcile-form">
+
+        <mat-form-field appearance="outline">
+
+          <mat-label>Total balance</mat-label>
+
+          <span matTextPrefix>₹&nbsp;</span>
+
+          <input
+            matInput
+            type="number"
+            min="0"
+            [formControl]="totalBalance"
+          />
+
+        </mat-form-field>
+
+
+        <mat-form-field appearance="outline">
+
+          <mat-label>Reconciled date</mat-label>
+
+          <input
+            matInput
+            type="date"
+            [formControl]="reconciledDate"
+          />
+
+        </mat-form-field>
+
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="
+                totalBalance.invalid ||
+                reconciledDate.invalid
+              "
+          (click)="reconcile()">
+
+          Update Balance
+
+        </button>
+
+      </div>
+
+    </mat-card-content>
+
+  </mat-card>
+
+
+  <!-- FUNDS -->
+
+  <section class="fund-section">
+
+    <div class="fund-header">
+
+      <div>
+        <h2>Your Funds</h2>
+        <span>
+              Persistent savings buckets
+            </span>
+      </div>
+
+
+      <div class="create-fund">
+
+        <mat-form-field appearance="outline">
+
+          <mat-label>Fund name</mat-label>
+
+          <input
+            matInput
+            placeholder="e.g. Emergency Fund"
+            [formControl]="newFundName"
+          />
+
+        </mat-form-field>
+
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="newFundName.invalid"
+          (click)="createFund()">
+
+          <mat-icon>add</mat-icon>
+          Add Fund
+
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="fund-grid">
+
+      @for (fund of data.funds; track fund.id) {
+        <mat-card class="fund-card">
+          <mat-card-content>
+            <div class="fund-title">
+              <div class="fund-icon">
+                <mat-icon>
+                  savings
+                </mat-icon>
+              </div>
+
+              <span>
+                {{ fund.name }}
+              </span>
+            </div>
+
+            <strong class="fund-balance">
+              {{ money(fund.balance) }}
+            </strong>
+
+            <div class="fund-actions">
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="changeFundBalance(fund, 'ADD')">
+
+                <mat-icon>add</mat-icon>
+                Add
+
+              </button>
+
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="fund.balance <= 0"
+                (click)="changeFundBalance(fund, 'WITHDRAW')">
+
+                <mat-icon>remove</mat-icon>
+                Withdraw
+
+              </button>
+
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="viewFundActivity(fund)">
+
+                <mat-icon>history</mat-icon>
+                Activity
+
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      } @empty {
+        <div class="empty-state">
+          <mat-icon>savings</mat-icon>
+
+          <strong>
+            No funds created
+          </strong>
+
+          <span>
+            Create your first savings fund.
+          </span>
+        </div>
+      }
+
+    </div>
+
+  </section>
+
+  <section class="activity-section">
+    <div class="activity-header">
+      <div>
+        <h2>Fund Activity</h2>
+        <span>{{ selectedActivityFundName() }}</span>
+      </div>
+    </div>
+
+    <div class="activity-filters">
+      <mat-form-field appearance="outline">
+        <mat-label>Fund</mat-label>
+        <mat-select
+          [value]="selectedActivityFundId()"
+          (selectionChange)="selectActivityFund($event.value)">
+          <mat-option [value]="null">All funds</mat-option>
+          @for (fund of data.funds; track fund.id) {
+            <mat-option [value]="fund.id">{{ fund.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Period</mat-label>
+        <mat-select [formControl]="activityPeriod">
+          <mat-option value="LAST_MONTH">Last month</mat-option>
+          <mat-option value="LAST_3_MONTHS">Last 3 months</mat-option>
+          <mat-option value="CUSTOM">Custom range</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      @if (activityPeriod.value === 'CUSTOM') {
+        <mat-form-field appearance="outline">
+          <mat-label>Start date</mat-label>
+          <input matInput type="date" [formControl]="activityStartDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End date</mat-label>
+          <input matInput type="date" [formControl]="activityEndDate" />
+        </mat-form-field>
+      }
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="activityLoading()"
+        (click)="loadActivity()">
+        <mat-icon>search</mat-icon>
+        View Activity
+      </button>
+    </div>
+
+    @if (activityLoading()) {
+      <div class="activity-loading">
+        <mat-spinner diameter="28" />
+      </div>
+    } @else {
+      @if (activity(); as activityData) {
+      <div class="activity-results">
+        <div class="activity-period">
+          {{ activityData.periodStart | date:'mediumDate' }} to
+          {{ activityData.periodEnd | date:'mediumDate' }}
+        </div>
+
+        <div class="activity-totals">
+          <div>
+            <span>Added</span>
+            <strong class="positive">{{ money(activityData.totalAdded) }}</strong>
+          </div>
+          <div>
+            <span>Withdrawn</span>
+            <strong class="negative">{{ money(activityData.totalWithdrawn) }}</strong>
+          </div>
+          <div>
+            <span>Net movement</span>
+            <strong [class.negative]="activityData.netMovement < 0">
+              {{ money(activityData.netMovement) }}
+            </strong>
+          </div>
+        </div>
+
+        @if (activityData.transactions.length) {
+          <div class="activity-table" role="table">
+            <div class="activity-row activity-table-header" role="row">
+              <span>Date</span>
+              <span>Fund</span>
+              <span>Type</span>
+              <span>Note</span>
+              <span>Amount</span>
+            </div>
+
+            @for (transaction of activityData.transactions; track transaction.id) {
+              <div class="activity-row" role="row">
+                <span>{{ transaction.transactionDate | date:'mediumDate' }}</span>
+                <span>{{ transaction.fundName }}</span>
+                <span
+                  class="movement-type"
+                  [class.add]="transaction.type === 'ADD'"
+                  [class.withdraw]="transaction.type === 'WITHDRAW'">
+                  {{ transaction.type === 'ADD' ? 'Add' : 'Withdraw' }}
+                </span>
+                <span class="activity-note">{{ transaction.note || 'No note' }}</span>
+                <strong [class.negative]="transaction.type === 'WITHDRAW'">
+                  {{ movementAmount(transaction.amount, transaction.type) }}
+                </strong>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="activity-empty">
+            No fund activity was recorded for this period.
+          </div>
+        }
+      </div>
+      } @else {
+        <div class="activity-empty">
+          Choose a period and load activity when you need it.
+        </div>
+      }
+    }
+  </section>
+
+    }
+  }
+</section>

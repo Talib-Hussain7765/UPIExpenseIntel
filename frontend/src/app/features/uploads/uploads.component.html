@@ -1,0 +1,159 @@
+<section class="uploads-page">
+  <header class="page-header">
+    <div>
+      <h1>Statement Uploads</h1>
+      <p>Import ICICI PDF statements and review parser status by month.</p>
+    </div>
+    <button mat-stroked-button type="button" (click)="loadUploads()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <div class="message error-state">
+      <mat-icon>error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message success-state">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  <section class="content-grid">
+    <mat-card class="upload-card">
+      <mat-card-header>
+        <mat-card-title>Upload Statement</mat-card-title>
+        <mat-card-subtitle>PDF statements are parsed immediately after upload.</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (!hasAccounts()) {
+          <div class="account-warning">
+            <mat-icon>account_balance</mat-icon>
+            <span>Add a bank account before uploading statements.</span>
+            <a mat-button routerLink="/bank-accounts">Open accounts</a>
+          </div>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <mat-form-field appearance="outline">
+            <mat-label>Bank account</mat-label>
+            <mat-select formControlName="bankAccountId">
+              @for (account of bankAccounts(); track account.id) {
+                <mat-option [value]="account.id">
+                  {{ account.accountNickname }} - {{ account.bankName }}
+                </mat-option>
+              }
+            </mat-select>
+            @if (form.controls.bankAccountId.touched && form.controls.bankAccountId.invalid) {
+              <mat-error>Bank account is required</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Statement month</mat-label>
+            <input matInput type="month" formControlName="statementMonth" (change)="loadUploads()" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Date basis</mat-label>
+            <mat-select formControlName="dateBasis">
+              @for (option of dateBasisOptions; track option.value) {
+                <mat-option [value]="option.value">
+                  <span class="date-basis-option">
+                    <strong>{{ option.label }}</strong>
+                    <small>{{ option.hint }}</small>
+                  </span>
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (customRangeSelected()) {
+            <div class="date-range-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Import start date</mat-label>
+                <input matInput type="date" formControlName="importStartDate" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Import end date</mat-label>
+                <input matInput type="date" formControlName="importEndDate" />
+              </mat-form-field>
+            </div>
+          }
+
+          <mat-form-field appearance="outline">
+            <mat-label>PDF password</mat-label>
+            <input matInput type="password" formControlName="pdfPassword" autocomplete="off" />
+          </mat-form-field>
+
+          <label class="file-picker">
+            <input type="file" accept="application/pdf,.pdf" (change)="onFileSelected($event)" />
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>{{ selectedFile()?.name || 'Choose PDF statement' }}</span>
+          </label>
+
+          <button mat-flat-button color="primary" type="submit" [disabled]="uploading() || !hasAccounts()">
+            @if (uploading()) {
+              <mat-spinner diameter="18" />
+            } @else {
+              Upload and parse
+            }
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <section class="history-panel">
+      <div class="panel-header">
+        <h2>Upload History</h2>
+        <span>{{ uploads().length }} records</span>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else {
+        <div class="upload-list">
+          @for (upload of uploads(); track upload.id) {
+            <article class="upload-row">
+              <div class="upload-main">
+                <strong>{{ upload.originalFileName }}</strong>
+                <span>{{ accountName(upload.bankAccountId) }}</span>
+              </div>
+              <span class="status" [class]="statusClass(upload.status)">{{ upload.status }}</span>
+              <div class="counts">
+                <strong>{{ upload.parsedRows }}/{{ upload.totalRows }}</strong>
+                <span>{{ uploadCountDetail(upload) }}</span>
+              </div>
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Delete upload"
+                aria-label="Delete upload"
+                (click)="deleteUpload(upload)">
+                <mat-icon>delete</mat-icon>
+              </button>
+              @if (upload.errorMessage) {
+                <p class="upload-error">{{ upload.errorMessage }}</p>
+              }
+            </article>
+          } @empty {
+            <div class="empty-state">
+              <mat-icon>upload_file</mat-icon>
+              <strong>No uploads for this month</strong>
+              <span>Upload a PDF statement to import transactions.</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  </section>
+</section>

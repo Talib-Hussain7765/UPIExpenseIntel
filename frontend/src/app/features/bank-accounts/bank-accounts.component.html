@@ -1,0 +1,115 @@
+<section class="bank-accounts-page">
+  <header class="page-header">
+    <div>
+      <h1>Bank Accounts</h1>
+      <p>Manage statement sources used for uploads and transaction tracking.</p>
+    </div>
+    <button mat-stroked-button type="button" (click)="loadAccounts()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <div class="error-state">
+      <mat-icon>error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <section class="content-grid">
+    <mat-card class="form-card">
+      <mat-card-header>
+        <mat-card-title>{{ formTitle() }}</mat-card-title>
+        <mat-card-subtitle>Use the same bank name you will select during statement upload.</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <mat-form-field appearance="outline">
+            <mat-label>Bank name</mat-label>
+            <input matInput formControlName="bankName" placeholder="ICICI Bank" />
+            @if (form.controls.bankName.touched && form.controls.bankName.invalid) {
+              <mat-error>Bank name is required</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Account nickname</mat-label>
+            <input matInput formControlName="accountNickname" placeholder="Salary account" />
+            @if (form.controls.accountNickname.touched && form.controls.accountNickname.invalid) {
+              <mat-error>Account nickname is required</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Account number</mat-label>
+            <input matInput formControlName="maskedAccountNumber" placeholder="Optional" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Account type</mat-label>
+            <mat-select formControlName="accountType">
+              <mat-option value="SAVINGS">Savings</mat-option>
+              <mat-option value="CURRENT">Current</mat-option>
+              <mat-option value="SALARY">Salary</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+              @if (saving()) {
+                <mat-spinner diameter="18" />
+              } @else if (editingAccount()) {
+                Save changes
+              } @else {
+                Add account
+              }
+            </button>
+            <button mat-button type="button" (click)="resetForm()">Clear</button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <section class="accounts-panel">
+      <div class="panel-header">
+        <h2>Active Accounts</h2>
+        <span>{{ accounts().length }} total</span>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else {
+        <div class="account-list">
+          @for (account of accounts(); track account.id) {
+            <article class="account-row">
+              <div class="account-main">
+                <strong>{{ account.accountNickname }}</strong>
+                <span>{{ account.bankName }}</span>
+              </div>
+              <span class="account-type">{{ account.accountType }}</span>
+              <span class="account-number">{{ account.maskedAccountNumber || 'No number' }}</span>
+              <div class="row-actions">
+                <button mat-icon-button type="button" aria-label="Edit account" (click)="edit(account)">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button type="button" aria-label="Remove account" (click)="deactivate(account)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-state">
+              <mat-icon>account_balance</mat-icon>
+              <strong>No bank accounts yet</strong>
+              <span>Add an account before uploading a statement.</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  </section>
+</section>

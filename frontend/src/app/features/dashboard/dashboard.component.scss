@@ -1,0 +1,187 @@
+.dashboard {
+  display: grid;
+  gap: 20px;
+}
+
+.dashboard-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+p {
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.period-form {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.period-form mat-form-field {
+  width: 180px;
+}
+
+.period-form button {
+  height: 56px;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.metric-card {
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.metric-card span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.metric-card strong {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.content-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.trend-panel {
+  grid-row: span 2;
+}
+
+.panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.panel-header h2 {
+  font-size: 16px;
+}
+
+.panel-header span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.trend-chart {
+  height: 360px;
+  width: 100%;
+}
+
+.breakdown-list {
+  display: grid;
+}
+
+.breakdown-row {
+  align-items: center;
+  border-top: 1px solid #f3f4f6;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr) 36px max-content;
+  min-height: 44px;
+}
+
+.breakdown-row:first-child {
+  border-top: 0;
+}
+
+.swatch {
+  border-radius: 4px;
+  height: 12px;
+  width: 12px;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: right;
+}
+
+.empty {
+  color: #6b7280;
+  margin: 8px 0 0;
+}
+
+.loading-state,
+.error-state {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.error-state {
+  color: #991b1b;
+}
+
+@media (max-width: 1100px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-header,
+  .period-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .period-form mat-form-field,
+  .period-form button {
+    width: 100%;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}

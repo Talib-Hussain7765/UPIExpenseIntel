@@ -1,0 +1,53 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav mode="side" opened class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">UPI</span>
+      <span>Expense Intel</span>
+    </div>
+
+    <nav>
+      <a routerLink="/dashboard" routerLinkActive="active">
+        <mat-icon>dashboard</mat-icon>
+        Dashboard
+      </a>
+      <a routerLink="/bank-accounts" routerLinkActive="active">
+        <mat-icon>account_balance</mat-icon>
+        Bank Accounts
+      </a>
+      <a routerLink="/uploads" routerLinkActive="active">
+        <mat-icon>upload_file</mat-icon>
+        Uploads
+      </a>
+      <a routerLink="/transactions" routerLinkActive="active">
+        <mat-icon>receipt_long</mat-icon>
+        Transactions
+      </a>
+      <a routerLink="/categories" routerLinkActive="active">
+        <mat-icon>category</mat-icon>
+        Categories
+      </a>
+      <a routerLink="/funds" routerLinkActive="active">
+        <mat-icon>savings</mat-icon>
+        Funds
+      </a>
+      <a routerLink="/merchant-rules" routerLinkActive="active">
+        <mat-icon>rule</mat-icon>
+        Merchant Rules
+      </a>
+
+    </nav>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar>
+      <span class="page-title">Dashboard</span>
+      <span class="spacer"></span>
+      <span class="user-name">{{ authService.currentUser()?.fullName || 'Account' }}</span>
+      <button mat-stroked-button type="button" (click)="authService.logout()">Sign out</button>
+    </mat-toolbar>
+
+    <section class="content">
+      <router-outlet />
+    </section>
+  </mat-sidenav-content>
+</mat-sidenav-container>

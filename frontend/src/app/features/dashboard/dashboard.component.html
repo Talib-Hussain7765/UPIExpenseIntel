@@ -1,0 +1,144 @@
+<section class="dashboard">
+  <header class="dashboard-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Income, expenses, UPI movement, and category trends for the selected period.</p>
+    </div>
+
+    <form class="period-form" [formGroup]="form" (ngSubmit)="loadSummary()">
+      <mat-form-field appearance="outline">
+        <mat-label>Analysis period</mat-label>
+        <mat-select formControlName="dateBasis">
+          <mat-option value="MONTH">Month</mat-option>
+          <mat-option value="CUSTOM_RANGE">Custom range</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      @if (!customRangeSelected()) {
+        <mat-form-field appearance="outline">
+          <mat-label>Month</mat-label>
+          <input matInput type="month" formControlName="month" />
+        </mat-form-field>
+      }
+
+      @if (customRangeSelected()) {
+        <mat-form-field appearance="outline">
+          <mat-label>Start date</mat-label>
+          <input matInput type="date" formControlName="startDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End date</mat-label>
+          <input matInput type="date" formControlName="endDate" />
+        </mat-form-field>
+      }
+
+      <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </form>
+  </header>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (errorMessage()) {
+    <div class="error-state">
+      <mat-icon>error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  } @else {
+    @if (summary(); as data) {
+      <section class="metric-grid">
+        <mat-card class="metric-card">
+          <span>Total income</span>
+          <strong>{{ money(data.totalIncome) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>Total expenses</span>
+          <strong>{{ money(data.totalExpenses) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>Savings</span>
+          <strong>{{ money(data.savingsAmount) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>Savings rate</span>
+          <strong>{{ percent(data.savingsRate) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>UPI debits</span>
+          <strong>{{ money(data.upiDebitTotal) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>UPI credits</span>
+          <strong>{{ money(data.upiCreditTotal) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>UPI credits</span>
+          <strong>{{ money(data.upiCreditTotal) }}</strong>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <span>Closing A/C Balance</span>
+          <strong>{{ data.closingBalance === -1 ? 'NA' : money(data.closingBalance) }}</strong>
+        </mat-card>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel trend-panel">
+          <div class="panel-header">
+            <h2>Daily Expense Trend</h2>
+            <span>{{ data.transactionCount }} transactions</span>
+          </div>
+          <div echarts [options]="dailyTrendOptions()" class="trend-chart"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Categories</h2>
+            <span>{{ data.uncategorizedCount }} uncategorized</span>
+          </div>
+          <div class="breakdown-list">
+            @for (item of data.categoryBreakdown; track item.categoryName) {
+              <div class="breakdown-row">
+                <span class="swatch" [style.background]="item.color || '#9ca3af'"></span>
+                <span class="name">{{ item.categoryName }}</span>
+                <span class="count">{{ item.transactionCount }}</span>
+                <strong>{{ money(item.amount) }}</strong>
+              </div>
+            } @empty {
+              <p class="empty">No expenses found for this month.</p>
+            }
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Top Merchants</h2>
+          </div>
+          <div class="breakdown-list">
+            @for (item of data.topMerchants; track item.merchantName) {
+              <div class="breakdown-row">
+                <mat-icon>storefront</mat-icon>
+                <span class="name">{{ item.merchantName }}</span>
+                <span class="count">{{ item.transactionCount }}</span>
+                <strong>{{ money(item.amount) }}</strong>
+              </div>
+            } @empty {
+              <p class="empty">No merchant data found for this month.</p>
+            }
+          </div>
+        </section>
+      </section>
+    }
+  }
+</section>
