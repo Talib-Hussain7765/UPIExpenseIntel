@@ -11,7 +11,9 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Getter
 @Setter
 @MappedSuperclass
@@ -29,6 +31,7 @@ public abstract class BaseEntity {
 
     @PrePersist
     void prePersist() {
+        log.info("PrePersist called for entity: {}", this.getClass().getSimpleName());
         OffsetDateTime now = OffsetDateTime.now();
         createdAt = now;
         updatedAt = now;
