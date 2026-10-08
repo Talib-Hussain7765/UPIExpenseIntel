@@ -18,7 +18,8 @@ public record DashboardSummaryResponse(
         int uncategorizedCount,
         List<CategoryBreakdownItem> categoryBreakdown,
         List<MerchantBreakdownItem> topMerchants,
-        List<DailyExpenseTrendItem> dailyExpenseTrend
+        List<DailyExpenseTrendItem> dailyExpenseTrend,
+        BigDecimal closingBalance
 ) {
 
     public record CategoryBreakdownItem(

@@ -15,28 +15,34 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import com.upiexpense.intel.upload.StatementUpload;
+import com.upiexpense.intel.upload.StatementUploadRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 public class DashboardService {
 
     private static final String UNCATEGORIZED = "Uncategorized";
     private static final String UNKNOWN_MERCHANT = "Unknown";
 
     private final TransactionRepository transactionRepository;
+    private final StatementUploadRepository statementUploadRepository;
 
-    public DashboardService(TransactionRepository transactionRepository) {
+    public DashboardService(TransactionRepository transactionRepository, StatementUploadRepository statementUploadRepository) {
         this.transactionRepository = transactionRepository;
+        this.statementUploadRepository = statementUploadRepository;
     }
 
     @Transactional(readOnly = true)
-    public DashboardSummaryResponse summary(UUID userId, String month) {
-        YearMonth yearMonth = parseMonth(month);
+    public DashboardSummaryResponse summary(UUID userId, LocalDate startDate, LocalDate endDate ) {
         List<Transaction> transactions = transactionRepository.findByUserIdAndTransactionDateBetweenOrderByTransactionDateDesc(
                         userId,
-                        yearMonth.atDay(1),
-                        yearMonth.atEndOfMonth()
+                        startDate,
+                        endDate
                 )
                 .stream()
                 .filter(transaction -> !transaction.isIgnored())
@@ -45,7 +51,15 @@ public class DashboardService {
 
         BigDecimal totalIncome = sum(transactions, TransactionType.CREDIT);
         BigDecimal totalExpenses = sum(transactions, TransactionType.DEBIT);
+
+        transactions.stream().filter(transaction -> transaction.getTransactionDate().toString().equals( "2026-07-26"))
+                .forEach(transaction -> log.info("Transaction on 2026-07-26: {} amount: {} balance: {}, createdAt: {}",
+                        transaction.getDescription(), transaction.getAmount(), transaction.getBalanceAfterTransaction(),transaction.getCreatedAt()));
+        
+
         BigDecimal savingsAmount = totalIncome.subtract(totalExpenses);
+        BigDecimal closingBalance = getClosingBalance(userId, transactions, savingsAmount, startDate, endDate);
+        log.info("Closing balance for user {} from {} to {} is {}", userId, startDate, endDate, closingBalance);
         BigDecimal savingsRate = totalIncome.signum() == 0
                 ? BigDecimal.ZERO
                 : savingsAmount.multiply(new BigDecimal("100")).divide(totalIncome, 2, RoundingMode.HALF_UP);
@@ -56,7 +70,7 @@ public class DashboardService {
                 .count();
 
         return new DashboardSummaryResponse(
-                yearMonth,
+                YearMonth.from(endDate),
                 totalIncome,
                 totalExpenses,
                 savingsAmount,
@@ -67,8 +81,29 @@ public class DashboardService {
                 uncategorizedCount,
                 categoryBreakdown(transactions),
                 topMerchants(transactions),
-                dailyExpenseTrend(transactions, yearMonth)
+                dailyExpenseTrend(transactions, startDate, endDate),
+                closingBalance
         );
+    }
+
+    private BigDecimal getClosingBalance(UUID userId, List<Transaction> transactions, BigDecimal savingsAmount, LocalDate startDate, LocalDate endDate) {
+        StatementUpload startDateUpload = transactions.stream().filter(transaction -> transaction.getTransactionDate().equals(startDate))
+                .map(Transaction::getStatementUpload).findFirst().orElse(null);
+
+        StatementUpload endDateUpload = transactions.stream().filter(transaction -> transaction.getTransactionDate().equals(endDate))
+                .map(Transaction::getStatementUpload).findFirst().orElse(null);
+
+        Transaction firstTransaction = null;
+        if(startDateUpload!=null) {
+            firstTransaction = transactionRepository.findFirstByUserIdAndStatementUploadIdOrderByTransactionDateAsc(userId, startDateUpload.getId()).orElseThrow(() -> new BadRequestException("No transactions found for the given start date upload"));
+        }
+
+        if(startDateUpload != null && startDateUpload.equals(endDateUpload) && startDate.equals(firstTransaction.getTransactionDate())) {
+            log.info("Opening balance for upload id: {} is {}",startDateUpload.getId(), startDateUpload.getOpeningBalance());
+            return startDateUpload.getOpeningBalance().add(savingsAmount);
+        }
+
+        return new BigDecimal(-1);
     }
 
     private List<DashboardSummaryResponse.CategoryBreakdownItem> categoryBreakdown(List<Transaction> transactions) {
@@ -117,16 +152,26 @@ public class DashboardService {
 
     private List<DashboardSummaryResponse.DailyExpenseTrendItem> dailyExpenseTrend(
             List<Transaction> transactions,
-            YearMonth yearMonth
+            LocalDate startDate,
+            LocalDate endDate
     ) {
+        log.info("daily trend expense range: {} to {}", startDate, endDate);
         Map<LocalDate, Aggregate> aggregates = new LinkedHashMap<>();
-        for (int day = 1; day <= yearMonth.lengthOfMonth(); day++) {
-            aggregates.put(yearMonth.atDay(day), new Aggregate());
+        
+        // Initialize all dates in the range
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            aggregates.put(date, new Aggregate());
         }
 
+        // Add transaction amounts to the corresponding dates
         transactions.stream()
                 .filter(transaction -> transaction.getTransactionType() == TransactionType.DEBIT)
-                .forEach(transaction -> aggregates.get(transaction.getTransactionDate()).add(transaction.getAmount()));
+                .forEach(transaction -> {
+                    LocalDate txDate = transaction.getTransactionDate();
+                    if (aggregates.containsKey(txDate)) {
+                        aggregates.get(txDate).add(transaction.getAmount());
+                    }
+                });
 
         return aggregates.entrySet().stream()
                 .map(entry -> new DashboardSummaryResponse.DailyExpenseTrendItem(
@@ -161,14 +206,6 @@ public class DashboardService {
             return transaction.getMerchantName().trim();
         }
         return UNKNOWN_MERCHANT;
-    }
-
-    private YearMonth parseMonth(String month) {
-        try {
-            return YearMonth.parse(month);
-        } catch (RuntimeException exception) {
-            throw new BadRequestException("month must use yyyy-MM format");
-        }
     }
 
     private record CategoryKey(UUID categoryId, String categoryName, String color) {

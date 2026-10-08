@@ -83,4 +83,28 @@ public class Transaction extends BaseEntity {
 
     @Column(name = "categorization_confidence", precision = 5, scale = 2)
     private BigDecimal categorizationConfidence;
+
+    @Override
+    public String toString() {
+        return "Transaction{" +
+                "user=" + user +
+                ", bankAccount=" + bankAccount +
+                ", statementUpload=" + statementUpload +
+                ", transactionDate=" + transactionDate +
+                ", valueDate=" + valueDate +
+                ", description='" + description + '\'' +
+                ", rawDescription='" + rawDescription + '\'' +
+                ", amount=" + amount +
+                ", transactionType=" + transactionType +
+                ", paymentMode=" + paymentMode +
+                ", merchantName='" + merchantName + '\'' +
+                ", category=" + category +
+                ", balanceAfterTransaction=" + balanceAfterTransaction +
+                ", referenceNumber='" + referenceNumber + '\'' +
+                ", recurring=" + recurring +
+                ", transfer=" + transfer +
+                ", ignored=" + ignored +
+                ", categorizationConfidence=" + categorizationConfidence +
+                '}';
+    }
 }

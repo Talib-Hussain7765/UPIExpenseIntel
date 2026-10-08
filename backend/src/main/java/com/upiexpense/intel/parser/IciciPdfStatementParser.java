@@ -10,9 +10,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class IciciPdfStatementParser implements StatementParser {
 
     private static final String ICICI_HEADER = "DATE MODE** PARTICULARS DEPOSITS WITHDRAWALS BALANCE";
@@ -20,6 +25,7 @@ public class IciciPdfStatementParser implements StatementParser {
     private static final Pattern DATE_LINE = Pattern.compile("^(\\d{2}-\\d{2}-\\d{4})(?:\\s+(.*))?$");
     private static final Pattern MONEY = Pattern.compile("\\d{1,3}(?:,\\d{2,3})*\\.\\d{2}|\\d+\\.\\d{2}");
     private static final Pattern LONG_NUMBER = Pattern.compile("\\b\\d{6,}\\b");
+    private BigDecimal openingBalance = new BigDecimal("0.00");
 
     @Override
     public boolean supports(StatementParseContext context) {
@@ -46,18 +52,18 @@ public class IciciPdfStatementParser implements StatementParser {
 
         for (List<String> block : blocks) {
             try {
-                ParsedBlock parsedBlock = parseBlock(block, context.statementMonth(), previousBalance);
+                ParsedBlock parsedBlock = parseBlock(block, previousBalance);
                 previousBalance = parsedBlock.balanceAfterTransaction();
                 parsedBlock.transaction().ifPresent(transactions::add);
             } catch (RuntimeException exception) {
                 errors.add("Unable to parse transaction block starting with: " + block.getFirst());
             }
         }
-
-        return new StatementParseResult(transactions, blocks.size(), errors.size(), errors);
+        log.info("Parsed {} transactions, {} errors, closing balance: {}", transactions.size(), errors.size(), openingBalance);
+        return new StatementParseResult(transactions, blocks.size(), errors.size(), errors, 0, 0, openingBalance);
     }
 
-    private ParsedBlock parseBlock(List<String> block, LocalDate statementMonth, BigDecimal previousBalance) {
+    private ParsedBlock parseBlock(List<String> block, BigDecimal previousBalance) {
         Matcher dateMatcher = DATE_LINE.matcher(block.getFirst());
         if (!dateMatcher.matches()) {
             return new ParsedBlock(java.util.Optional.empty(), previousBalance);
@@ -72,10 +78,7 @@ public class IciciPdfStatementParser implements StatementParser {
         BigDecimal balance = moneyValues.isEmpty() ? previousBalance : moneyValues.getLast();
 
         if (isCarryForwardBalance(firstLineRemainder) || isCarryForwardBalance(upperDescription)) {
-            return new ParsedBlock(java.util.Optional.empty(), balance);
-        }
-
-        if (statementMonth != null && !transactionDate.withDayOfMonth(1).equals(statementMonth)) {
+            this.openingBalance = balance;
             return new ParsedBlock(java.util.Optional.empty(), balance);
         }
 

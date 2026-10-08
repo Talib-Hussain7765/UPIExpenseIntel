@@ -11,6 +11,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
@@ -54,9 +56,20 @@ public class StatementUpload extends BaseEntity {
     @Column(name = "parsed_rows", nullable = false)
     private int parsedRows;
 
+    @Column(name = "skipped_rows", nullable = false)
+    private int skippedRows;
+
+    @Column(name = "duplicate_rows", nullable = false)
+    private int duplicateRows;
+
+    @Column(name = "opening_balance", nullable = true, columnDefinition = "decimal(19,2) default 0.00")
+    private BigDecimal openingBalance;
+
     @Column(name = "failed_rows", nullable = false)
     private int failedRows;
 
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
+
+
 }

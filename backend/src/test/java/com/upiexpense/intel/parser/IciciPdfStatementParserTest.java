@@ -28,7 +28,10 @@ class IciciPdfStatementParserTest {
                 "ICICI Bank",
                 "PDF",
                 extractedText,
-                LocalDate.of(2026, 4, 1)
+                LocalDate.of(2026, 4, 1),
+                StatementImportDateBasis.TRANSACTION_DATE,
+                null,
+                null
         );
 
         StatementParseResult result = parser.parse(context);
@@ -39,5 +42,36 @@ class IciciPdfStatementParserTest {
         assertThat(result.transactions().get(0).transactionType()).isEqualTo(TransactionType.DEBIT);
         assertThat(result.transactions().get(1).amount()).isEqualByComparingTo(new BigDecimal("500.00"));
         assertThat(result.transactions().get(1).transactionType()).isEqualTo(TransactionType.CREDIT);
+    }
+
+    @Test
+    void parsesRowsOutsideSelectedStatementMonth() {
+        String extractedText = """
+                Statement of Transactions in Savings Account Number: 123456 in INR for the period July 01, 2026 - July 31, 2026
+                DATE MODE** PARTICULARS DEPOSITS WITHDRAWALS BALANCE
+                30-06-2026 B/F 1,000.00
+                30-06-2026
+                UPI/SHOP/paytmqr@bank/Payment fr/YES BANK/123456789012
+                250.00 750.00
+                01-07-2026
+                UPI/FRIEND/mobile@bank/Payment fr/HDFC BANK/987654321098
+                500.00 1,250.00
+                """;
+        StatementParseContext context = new StatementParseContext(
+                "ICICI Bank",
+                "PDF",
+                extractedText,
+                LocalDate.of(2026, 7, 1),
+                StatementImportDateBasis.TRANSACTION_DATE,
+                null,
+                null
+        );
+
+        StatementParseResult result = parser.parse(context);
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.transactions())
+                .extracting(ParsedTransactionRow::transactionDate)
+                .containsExactly(LocalDate.of(2026, 6, 30), LocalDate.of(2026, 7, 1));
     }
 }

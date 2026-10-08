@@ -4,22 +4,19 @@ import com.upiexpense.intel.bankaccount.BankAccount;
 import com.upiexpense.intel.bankaccount.BankAccountRepository;
 import com.upiexpense.intel.common.error.BadRequestException;
 import com.upiexpense.intel.common.error.NotFoundException;
-import com.upiexpense.intel.parser.ParsedTransactionRow;
-import com.upiexpense.intel.parser.PdfTextExtractor;
-import com.upiexpense.intel.parser.StatementParseContext;
-import com.upiexpense.intel.parser.StatementParseResult;
-import com.upiexpense.intel.parser.StatementParser;
-import com.upiexpense.intel.parser.StatementParserSelector;
+import com.upiexpense.intel.parser.*;
 import com.upiexpense.intel.transaction.CategorizationService;
 import com.upiexpense.intel.transaction.Transaction;
 import com.upiexpense.intel.transaction.TransactionRepository;
 import com.upiexpense.intel.user.User;
 import com.upiexpense.intel.user.UserRepository;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
@@ -69,7 +66,10 @@ public class StatementUploadService {
             UUID bankAccountId,
             String statementMonth,
             MultipartFile file,
-            String pdfPassword
+            String pdfPassword,
+            StatementImportDateBasis dateBasis,
+            String importStartDate,
+            String importEndDate
     ) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("Statement file is required");
@@ -106,6 +106,7 @@ public class StatementUploadService {
         upload.setFileSha256(fileSha256);
         upload.setStatementMonth(parsedStatementMonth);
         upload.setStatus(UploadStatus.PARSING);
+        upload.setOpeningBalance(BigDecimal.ZERO);
         StatementUpload savedUpload = statementUploadRepository.save(upload);
 
         try {
@@ -114,35 +115,57 @@ public class StatementUploadService {
                     bankAccount.getBankName(),
                     fileType,
                     extractedText,
-                    parsedStatementMonth
+                    parsedStatementMonth,
+                    dateBasis,
+                    null,
+                    null
             );
             StatementParser parser = statementParserSelector.select(context);
             StatementParseResult result = parser.parse(context);
 
+            List<ParsedTransactionRow> importableRows = filterRowsByDateBasis(
+                    result.transactions(),
+                    parsedStatementMonth,
+                    dateBasis,
+                    importStartDate,
+                    importEndDate
+            );
+
             Set<TransactionSignature> knownTransactions = existingTransactionSignatures(
                     userId,
                     bankAccountId,
+                    importableRows,
                     parsedStatementMonth
             );
-            List<Transaction> transactions = result.transactions().stream()
-                    .filter(row -> knownTransactions.add(TransactionSignature.from(row)))
-                    .map(row -> toTransaction(user, bankAccount, savedUpload, row))
-                    .toList();
+            List<Transaction> transactions = new ArrayList<>();
+            int duplicateRows = result.duplicateRows();
+            for (ParsedTransactionRow row : importableRows) {
+                if (knownTransactions.add(TransactionSignature.from(row))) {
+                    transactions.add(toTransaction(user, bankAccount, savedUpload, row));
+                } else {
+                    duplicateRows++;
+                }
+            }
+            int skippedRows = result.skippedRows() + result.transactions().size() - importableRows.size();
             categorizationService.categorize(userId, transactions, false);
             transactionRepository.saveAll(transactions);
 
             savedUpload.setTotalRows(result.totalRows());
+            savedUpload.setOpeningBalance(result.openingBalance());
             savedUpload.setParsedRows(transactions.size());
+            savedUpload.setSkippedRows(skippedRows);
+            savedUpload.setDuplicateRows(duplicateRows);
             savedUpload.setFailedRows(result.failedRows());
             savedUpload.setStatus(result.failedRows() > 0 ? UploadStatus.PARTIALLY_FAILED : UploadStatus.PARSED);
             savedUpload.setErrorMessage(result.errors().isEmpty() ? null : String.join("; ", result.errors()));
 
-            log.info("Statement parsed: userId={}, uploadId={}, bankAccountId={}, parsedRows={}, failedRows={}",
+            log.info("Statement parsed: userId={}, uploadId={}, bankAccountId={}, parsedRows={}, failedRows={}, OpeningBalance={}",
                     userId,
                     savedUpload.getId(),
                     bankAccountId,
                     savedUpload.getParsedRows(),
-                    savedUpload.getFailedRows()
+                    savedUpload.getFailedRows(),
+                    savedUpload.getOpeningBalance()
             );
             return StatementUploadResponse.from(statementUploadRepository.save(savedUpload));
         } catch (BadRequestException exception) {
@@ -204,14 +227,24 @@ public class StatementUploadService {
     private Set<TransactionSignature> existingTransactionSignatures(
             UUID userId,
             UUID bankAccountId,
-            LocalDate statementMonth
+            List<ParsedTransactionRow> parsedRows,
+            LocalDate fallbackStatementMonth
     ) {
-        LocalDate endDate = statementMonth.plusMonths(1).minusDays(1);
+        LocalDate startDate = parsedRows.stream()
+                .map(ParsedTransactionRow::transactionDate)
+                .min(LocalDate::compareTo)
+                .orElse(fallbackStatementMonth);
+
+        LocalDate endDate = parsedRows.stream()
+                        .map(ParsedTransactionRow::transactionDate)
+                        .max(LocalDate::compareTo)
+                        .orElse(fallbackStatementMonth.plusMonths(1).minusDays(1));
+
         List<Transaction> existingTransactions =
                 transactionRepository.findByUserIdAndBankAccountIdAndTransactionDateBetween(
                         userId,
                         bankAccountId,
-                        statementMonth,
+                        startDate,
                         endDate
                 );
 
@@ -302,6 +335,46 @@ public class StatementUploadService {
 
         private static String normalize(String value) {
             return value == null ? null : value.trim().replaceAll("\\s+", " ");
+        }
+    }
+
+    private List<ParsedTransactionRow> filterRowsByDateBasis(
+            List<ParsedTransactionRow> rows,
+            LocalDate statementMonth,
+            StatementImportDateBasis dateBasis,
+            String importStartDate,
+            String importEndDate
+    ) {
+        StatementImportDateBasis effectiveDateBasis =
+                dateBasis == null ? StatementImportDateBasis.TRANSACTION_DATE : dateBasis;
+
+        return switch (effectiveDateBasis) {
+            case TRANSACTION_DATE -> rows;
+            case STATEMENT_MONTH_ONLY -> rows.stream()
+                    .filter(row -> row.transactionDate().withDayOfMonth(1).equals(statementMonth))
+                    .toList();
+            case CUSTOM_RANGE -> {
+                LocalDate startDate = parseImportDate(importStartDate, "importStartDate");
+                LocalDate endDate = parseImportDate(importEndDate, "importEndDate");
+                if (endDate.isBefore(startDate)) {
+                    throw new BadRequestException("importEndDate must be on or after importStartDate");
+                }
+                yield rows.stream()
+                        .filter(row -> !row.transactionDate().isBefore(startDate)
+                                && !row.transactionDate().isAfter(endDate))
+                        .toList();
+            }
+        };
+    }
+
+    private LocalDate parseImportDate(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new BadRequestException(fieldName + " is required when dateBasis is CUSTOM_RANGE");
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (RuntimeException exception) {
+            throw new BadRequestException(fieldName + " must use yyyy-MM-dd format");
         }
     }
 }

@@ -6,6 +6,9 @@ public record StatementParseContext(
         String bankName,
         String fileType,
         String extractedText,
-        LocalDate statementMonth
+        LocalDate statementMonth,
+        StatementImportDateBasis dateBasis,
+        LocalDate importStartDate,
+        LocalDate importEndDate
 ) {
 }

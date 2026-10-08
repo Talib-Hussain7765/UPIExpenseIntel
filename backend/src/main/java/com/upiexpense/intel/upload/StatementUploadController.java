@@ -1,6 +1,7 @@
 package com.upiexpense.intel.upload;
 
 import com.upiexpense.intel.common.security.CurrentUser;
+import com.upiexpense.intel.parser.StatementImportDateBasis;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -25,14 +26,20 @@ public class StatementUploadController {
             @RequestParam UUID bankAccountId,
             @RequestParam String statementMonth,
             @RequestParam MultipartFile file,
-            @RequestParam(required = false) String pdfPassword
+            @RequestParam(required = false) String pdfPassword,
+            @RequestParam(required = false, defaultValue = "TRANSACTION_DATE") StatementImportDateBasis dateBasis,
+            @RequestParam(required = false) String importStartDate,
+            @RequestParam(required = false) String importEndDate
     ) {
         return statementUploadService.uploadStatement(
                 currentUser.id(),
                 bankAccountId,
                 statementMonth,
                 file,
-                pdfPassword
+                pdfPassword,
+                dateBasis,
+                importStartDate,
+                importEndDate
         );
     }
 

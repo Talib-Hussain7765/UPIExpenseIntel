@@ -10,6 +10,7 @@ import com.upiexpense.intel.transaction.PaymentMode;
 import com.upiexpense.intel.transaction.Transaction;
 import com.upiexpense.intel.transaction.TransactionRepository;
 import com.upiexpense.intel.transaction.TransactionType;
+import com.upiexpense.intel.upload.StatementUploadRepository;
 import com.upiexpense.intel.user.User;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,6 +29,9 @@ class DashboardServiceTest {
     @Mock
     private TransactionRepository transactionRepository;
 
+    @Mock
+    private StatementUploadRepository statementUploadRepository;
+
     private DashboardService service;
     private UUID userId;
     private User user;
@@ -35,7 +39,7 @@ class DashboardServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new DashboardService(transactionRepository);
+        service = new DashboardService(transactionRepository, statementUploadRepository);
         userId = UUID.randomUUID();
         user = new User();
         user.setId(userId);

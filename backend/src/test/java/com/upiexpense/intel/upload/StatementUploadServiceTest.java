@@ -17,6 +17,7 @@ import com.upiexpense.intel.parser.ParsedTransactionRow;
 import com.upiexpense.intel.parser.PdfTextExtractor;
 import com.upiexpense.intel.parser.StatementParseContext;
 import com.upiexpense.intel.parser.StatementParseResult;
+import com.upiexpense.intel.parser.StatementImportDateBasis;
 import com.upiexpense.intel.parser.StatementParser;
 import com.upiexpense.intel.parser.StatementParserSelector;
 import com.upiexpense.intel.transaction.CategorizationService;
@@ -103,7 +104,16 @@ class StatementUploadServiceTest {
                 anyString()
         )).thenReturn(true);
 
-        assertThatThrownBy(() -> service.uploadStatement(userId, bankAccountId, "2026-04", file, null))
+        assertThatThrownBy(() -> service.uploadStatement(
+                userId,
+                bankAccountId,
+                "2026-04",
+                file,
+                null,
+                StatementImportDateBasis.TRANSACTION_DATE,
+                null,
+                null
+        ))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("This statement file has already been uploaded for the selected account and month");
 
@@ -151,17 +161,152 @@ class StatementUploadServiceTest {
         when(transactionRepository.findByUserIdAndBankAccountIdAndTransactionDateBetween(
                 userId,
                 bankAccountId,
-                LocalDate.of(2026, 4, 1),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 2),
+                LocalDate.of(2026, 4, 2)
         )).thenReturn(List.of(existingTransaction));
 
-        service.uploadStatement(userId, bankAccountId, "2026-04", file, null);
+        StatementUploadResponse response = service.uploadStatement(
+                userId,
+                bankAccountId,
+                "2026-04",
+                file,
+                null,
+                StatementImportDateBasis.TRANSACTION_DATE,
+                null,
+                null
+        );
 
         ArgumentCaptor<List<Transaction>> captor = ArgumentCaptor.forClass(List.class);
         verify(transactionRepository).saveAll(captor.capture());
         assertThat(captor.getValue()).hasSize(1);
         assertThat(captor.getValue().getFirst().getRawDescription()).isEqualTo(newRow.rawDescription());
         assertThat(captor.getValue().getFirst().getTransactionType()).isEqualTo(TransactionType.CREDIT);
+        assertThat(response.parsedRows()).isEqualTo(1);
+        assertThat(response.duplicateRows()).isEqualTo(1);
+        assertThat(response.skippedRows()).isZero();
+    }
+
+    @Test
+    void savesTransactionFromPreviousMonthPresentInStatement() throws Exception {
+        MockMultipartFile file = pdf("statement.pdf", "july-statement-with-june-row");
+        ParsedTransactionRow juneRow = row(
+                LocalDate.of(2026, 6, 30),
+                "UPI/SHOP/pay/111111",
+                new BigDecimal("250.00"),
+                TransactionType.DEBIT,
+                new BigDecimal("750.00"),
+                "111111"
+        );
+        StatementParser parser = new StatementParser() {
+            @Override
+            public boolean supports(StatementParseContext context) {
+                return true;
+            }
+
+            @Override
+            public StatementParseResult parse(StatementParseContext context) {
+                return new StatementParseResult(List.of(juneRow), 1, 0, List.of());
+            }
+        };
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(bankAccountRepository.findByIdAndUserIdAndActiveTrue(bankAccountId, userId))
+                .thenReturn(Optional.of(bankAccount));
+        when(statementUploadRepository.save(any(StatementUpload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(pdfTextExtractor.extract(file.getBytes(), null)).thenReturn("extracted text");
+        when(statementParserSelector.select(any(StatementParseContext.class))).thenReturn(parser);
+        when(transactionRepository.findByUserIdAndBankAccountIdAndTransactionDateBetween(
+                userId,
+                bankAccountId,
+                LocalDate.of(2026, 6, 30),
+                LocalDate.of(2026, 6, 30)
+        )).thenReturn(List.of());
+
+        StatementUploadResponse response = service.uploadStatement(
+                userId,
+                bankAccountId,
+                "2026-07",
+                file,
+                null,
+                StatementImportDateBasis.TRANSACTION_DATE,
+                null,
+                null
+        );
+
+        ArgumentCaptor<List<Transaction>> captor = ArgumentCaptor.forClass(List.class);
+        verify(transactionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().getFirst().getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(captor.getValue().getFirst().getRawDescription()).isEqualTo(juneRow.rawDescription());
+        assertThat(response.parsedRows()).isEqualTo(1);
+        assertThat(response.duplicateRows()).isZero();
+        assertThat(response.skippedRows()).isZero();
+    }
+
+    @Test
+    void reportsSkippedRowsExcludedByStatementMonthOnlyImport() throws Exception {
+        MockMultipartFile file = pdf("statement.pdf", "july-statement-with-june-row");
+        ParsedTransactionRow juneRow = row(
+                LocalDate.of(2026, 6, 30),
+                "UPI/SHOP/pay/111111",
+                new BigDecimal("250.00"),
+                TransactionType.DEBIT,
+                new BigDecimal("750.00"),
+                "111111"
+        );
+        ParsedTransactionRow julyRow = row(
+                LocalDate.of(2026, 7, 1),
+                "UPI/FRIEND/pay/222222",
+                new BigDecimal("500.00"),
+                TransactionType.CREDIT,
+                new BigDecimal("1250.00"),
+                "222222"
+        );
+        StatementParser parser = new StatementParser() {
+            @Override
+            public boolean supports(StatementParseContext context) {
+                return true;
+            }
+
+            @Override
+            public StatementParseResult parse(StatementParseContext context) {
+                return new StatementParseResult(List.of(juneRow, julyRow), 2, 0, List.of());
+            }
+        };
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(bankAccountRepository.findByIdAndUserIdAndActiveTrue(bankAccountId, userId))
+                .thenReturn(Optional.of(bankAccount));
+        when(statementUploadRepository.save(any(StatementUpload.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(pdfTextExtractor.extract(file.getBytes(), null)).thenReturn("extracted text");
+        when(statementParserSelector.select(any(StatementParseContext.class))).thenReturn(parser);
+        when(transactionRepository.findByUserIdAndBankAccountIdAndTransactionDateBetween(
+                userId,
+                bankAccountId,
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 7, 1)
+        )).thenReturn(List.of());
+
+        StatementUploadResponse response = service.uploadStatement(
+                userId,
+                bankAccountId,
+                "2026-07",
+                file,
+                null,
+                StatementImportDateBasis.STATEMENT_MONTH_ONLY,
+                null,
+                null
+        );
+
+        ArgumentCaptor<List<Transaction>> captor = ArgumentCaptor.forClass(List.class);
+        verify(transactionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().getFirst().getTransactionDate()).isEqualTo(LocalDate.of(2026, 7, 1));
+        assertThat(response.parsedRows()).isEqualTo(1);
+        assertThat(response.duplicateRows()).isZero();
+        assertThat(response.skippedRows()).isEqualTo(1);
     }
 
     @Test
@@ -211,8 +356,26 @@ class StatementUploadServiceTest {
             BigDecimal balance,
             String referenceNumber
     ) {
-        return new ParsedTransactionRow(
+        return row(
                 LocalDate.of(2026, 4, 2),
+                rawDescription,
+                amount,
+                transactionType,
+                balance,
+                referenceNumber
+        );
+    }
+
+    private ParsedTransactionRow row(
+            LocalDate transactionDate,
+            String rawDescription,
+            BigDecimal amount,
+            TransactionType transactionType,
+            BigDecimal balance,
+            String referenceNumber
+    ) {
+        return new ParsedTransactionRow(
+                transactionDate,
                 rawDescription,
                 rawDescription,
                 amount,
