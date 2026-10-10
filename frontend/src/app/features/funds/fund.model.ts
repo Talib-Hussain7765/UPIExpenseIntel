@@ -21,6 +21,8 @@ export interface UpdateFundRequest {
   type: 'ADD' | 'WITHDRAW';
   transactionDate: string;
   note?: string;
+  reconciledTotalBalance: number;
+  reconciledDate: string;
 }
 
 export interface ReconcileFundRequest {

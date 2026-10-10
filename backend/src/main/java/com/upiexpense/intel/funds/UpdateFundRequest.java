@@ -17,7 +17,14 @@ public record UpdateFundRequest(
         @NotNull
         LocalDate transactionDate,
 
-        String note
+        String note,
+
+        @NotNull
+        @DecimalMin(value = "0.00")
+        BigDecimal reconciledTotalBalance,
+
+        @NotNull
+        LocalDate reconciledDate
 ) {
 }
 

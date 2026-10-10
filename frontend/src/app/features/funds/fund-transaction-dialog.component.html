@@ -1,0 +1,60 @@
+<h2 mat-dialog-title>{{ actionLabel() }}</h2>
+
+<mat-dialog-content>
+  <div class="reconcile-notice">
+    <mat-icon>account_balance</mat-icon>
+    <div>
+      <strong>Reconcile before changing {{ data.fundName }}</strong>
+      <span>Enter the current total account balance before recording this fund movement.</span>
+    </div>
+  </div>
+
+  <form [formGroup]="form">
+    <div class="form-grid reconcile-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Current total balance</mat-label>
+        <span matTextPrefix>Rs.&nbsp;</span>
+        <input
+          matInput
+          type="number"
+          min="0"
+          formControlName="reconciledTotalBalance"
+        />
+        @if (form.controls.reconciledTotalBalance.hasError('required')) {
+          <mat-error>Current balance is required.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Balance date</mat-label>
+        <input matInput type="date" formControlName="reconciledDate" />
+      </mat-form-field>
+    </div>
+
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Amount</mat-label>
+        <span matTextPrefix>Rs.&nbsp;</span>
+        <input matInput type="number" min="0.01" formControlName="amount" />
+        @if (form.controls.amount.hasError('required')) {
+          <mat-error>Amount is required.</mat-error>
+        }
+        @if (form.controls.amount.hasError('min')) {
+          <mat-error>Enter an amount greater than zero.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Note</mat-label>
+        <input matInput maxlength="500" formControlName="note" />
+      </mat-form-field>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="null">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="submit()">
+    {{ actionLabel() }}
+  </button>
+</mat-dialog-actions>

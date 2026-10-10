@@ -4,6 +4,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -17,6 +18,10 @@ import {
   FundTransactionHistory
 } from './fund.model';
 import { FundService } from './fund.service';
+import {
+  FundTransactionDialogComponent,
+  FundTransactionDialogResult
+} from './fund-transaction-dialog.component';
 
 @Component({
   selector: 'app-fund',
@@ -76,7 +81,8 @@ export class FundComponent implements OnInit {
   });
 
   constructor(
-    private readonly fundService: FundService
+    private readonly fundService: FundService,
+    private readonly dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -174,68 +180,51 @@ export class FundComponent implements OnInit {
     fund: Fund,
     type: 'ADD' | 'WITHDRAW'
   ): void {
-
-    const input = prompt(
-      type === 'ADD'
-        ? `Amount to add to ${fund.name}`
-        : `Amount to withdraw from ${fund.name}`
-    );
-
-    if (!input) {
-      return;
-    }
-
-    const amount = Number(input);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      this.errorMessage.set('Enter a valid amount.');
-      return;
-    }
-
-    if (
-      type === 'WITHDRAW' &&
-      amount > fund.balance
-    ) {
-      this.errorMessage.set(
-        'Withdrawal cannot exceed fund balance.'
-      );
-      return;
-    }
-
-    const note = prompt('Note (optional)');
-
-    if (note === null) {
-      return;
-    }
-
-    this.fundService.updateFund(
-      fund.id,
-      {
-        amount,
-        type,
-        transactionDate:
-          new Date().toISOString().substring(0, 10),
-        note: note.trim() || undefined
+    this.dialog.open(FundTransactionDialogComponent, {
+      width: '560px',
+      maxWidth: 'calc(100vw - 32px)',
+      data: {
+        fundName: fund.name,
+        type
       }
-    ).subscribe({
-      next: () => {
-        this.successMessage.set(
-          type === 'ADD'
-            ? 'Amount added to fund.'
-            : 'Amount withdrawn from fund.'
-        );
+    }).afterClosed().subscribe((result: FundTransactionDialogResult | null) => {
+      if (!result) {
+        return;
+      }
 
-        this.loadSummary();
+      if (type === 'WITHDRAW' && result.amount > fund.balance) {
+        this.errorMessage.set('Withdrawal cannot exceed fund balance.');
+        return;
+      }
 
-        if (this.activity()) {
-          this.loadActivity();
+      this.fundService.updateFund(
+        fund.id,
+        {
+          amount: result.amount,
+          type,
+          transactionDate: result.reconciledDate,
+          note: result.note,
+          reconciledTotalBalance: result.reconciledTotalBalance,
+          reconciledDate: result.reconciledDate
         }
-      },
-      error: () => {
-        this.errorMessage.set(
-          'Unable to update fund.'
-        );
-      }
+      ).subscribe({
+        next: () => {
+          this.successMessage.set(
+            type === 'ADD'
+              ? 'Amount added to fund and total balance reconciled.'
+              : 'Amount withdrawn from fund and total balance reconciled.'
+          );
+
+          this.loadSummary();
+
+          if (this.activity()) {
+            this.loadActivity();
+          }
+        },
+        error: () => {
+          this.errorMessage.set('Unable to update fund.');
+        }
+      });
     });
   }
 

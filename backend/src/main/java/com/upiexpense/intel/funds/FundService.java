@@ -208,8 +208,15 @@ public class FundService {
                 .note(request.note())
                 .build();
 
+        FundSnapshot snapshot = FundSnapshot.builder()
+                .userId(userId)
+                .totalBalance(request.reconciledTotalBalance())
+                .reconciledDate(request.reconciledDate())
+                .build();
+
         fundRepository.save(fund);
         fundTransactionRepository.save(transaction);
+        fundSnapshotRepository.save(snapshot);
     }
 
     private FundResponse toResponse(Fund fund) {
