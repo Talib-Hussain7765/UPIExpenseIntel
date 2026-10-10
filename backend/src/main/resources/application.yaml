@@ -22,6 +22,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:9090}
+  forward-headers-strategy: framework
 
 logging:
   level:
