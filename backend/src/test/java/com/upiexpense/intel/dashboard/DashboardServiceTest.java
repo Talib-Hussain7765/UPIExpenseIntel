@@ -67,7 +67,11 @@ class DashboardServiceTest {
                 LocalDate.of(2026, 4, 30)
         )).thenReturn(List.of(salary, swiggy, electricity, uncategorized, ignored, transfer));
 
-        DashboardSummaryResponse response = service.summary(userId, "2026-04");
+        DashboardSummaryResponse response = service.summary(
+                userId,
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 30)
+        );
 
         assertThat(response.month()).isEqualTo(YearMonth.of(2026, 4));
         assertThat(response.totalIncome()).isEqualByComparingTo("100000.00");
